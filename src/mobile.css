@@ -1,0 +1,9 @@
+/* Ajout responsive au fichier index.css — hamburger mobile */
+@media (max-width: 768px) {
+  .hamburger-btn {
+    display: flex !important;
+  }
+  .sidebar-overlay {
+    display: block !important;
+  }
+}
