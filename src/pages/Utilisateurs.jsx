@@ -16,11 +16,15 @@ const ROLES_DESC = {
   observateur: 'Lecture seule'
 }
 
+const SERVICE_KEY = import.meta.env.VITE_SUPABASE_SERVICE_KEY
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
+
 export default function Utilisateurs() {
   const { profil } = useAuthStore()
   const [utilisateurs, setUtilisateurs] = useState([])
   const [showModal, setShowModal] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
 
   const [form, setForm] = useState({
     email: '', password: '', nom: '', prenom: '', role: 'technicien'
@@ -37,18 +41,33 @@ export default function Utilisateurs() {
 
   const creerUtilisateur = async (e) => {
     e.preventDefault()
+    if (!form.email || !form.password || !form.nom || !form.prenom) {
+      return toast.error('Remplissez tous les champs')
+    }
+    if (form.password.length < 8) {
+      return toast.error('Le mot de passe doit faire au moins 8 caractères')
+    }
+    setSaving(true)
     try {
-      // Créer compte auth
-      const { data: authData, error: authErr } = await supabase.auth.admin.createUser({
-        email: form.email,
-        password: form.password,
-        email_confirm: true
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SERVICE_KEY}`,
+          'apikey': SERVICE_KEY
+        },
+        body: JSON.stringify({
+          email: form.email,
+          password: form.password,
+          email_confirm: true
+        })
       })
-      if (authErr) throw authErr
 
-      // Créer profil
+      const userData = await res.json()
+      if (!res.ok) throw new Error(userData.message || 'Erreur création compte')
+
       const { error: profErr } = await supabase.from('profils').insert({
-        id: authData.user.id,
+        id: userData.id,
         email: form.email,
         nom: form.nom,
         prenom: form.prenom,
@@ -57,12 +76,14 @@ export default function Utilisateurs() {
       })
       if (profErr) throw profErr
 
-      toast.success(`Utilisateur ${form.prenom} créé !`)
+      toast.success(`Utilisateur ${form.prenom} ${form.nom} créé !`)
       setShowModal(false)
       setForm({ email: '', password: '', nom: '', prenom: '', role: 'technicien' })
       charger()
     } catch (err) {
       toast.error('Erreur : ' + err.message)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -94,7 +115,6 @@ export default function Utilisateurs() {
         </button>
       </div>
 
-      {/* Grille rôles */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 24 }}>
         {ROLES.map(r => (
           <div key={r} className="kpi-carte" style={{ padding: 16 }}>
@@ -107,7 +127,6 @@ export default function Utilisateurs() {
         ))}
       </div>
 
-      {/* Tableau utilisateurs */}
       <div className="carte">
         <div className="tableau-container">
           <table className="tableau">
@@ -123,12 +142,8 @@ export default function Utilisateurs() {
                     {u.id === profil?.id ? (
                       <span className="badge badge-ocre">{ROLES_LABELS[u.role]}</span>
                     ) : (
-                      <select
-                        className="form-select"
-                        style={{ padding: '4px 8px', fontSize: '0.8rem', width: 'auto' }}
-                        value={u.role}
-                        onChange={e => changerRole(u.id, e.target.value)}
-                      >
+                      <select className="form-select" style={{ padding: '4px 8px', fontSize: '0.8rem', width: 'auto' }}
+                        value={u.role} onChange={e => changerRole(u.id, e.target.value)}>
                         {ROLES.map(r => <option key={r} value={r}>{ROLES_LABELS[r]}</option>)}
                       </select>
                     )}
@@ -140,10 +155,8 @@ export default function Utilisateurs() {
                   </td>
                   <td>
                     {u.id !== profil?.id && (
-                      <button
-                        className={`btn btn-sm ${u.actif ? 'btn-danger' : 'btn-primaire'}`}
-                        onClick={() => toggleActif(u)}
-                      >
+                      <button className={`btn btn-sm ${u.actif ? 'btn-danger' : 'btn-primaire'}`}
+                        onClick={() => toggleActif(u)}>
                         {u.actif ? '🔒 Désactiver' : '🔓 Activer'}
                       </button>
                     )}
@@ -155,7 +168,6 @@ export default function Utilisateurs() {
         </div>
       </div>
 
-      {/* Modal créer utilisateur */}
       {showModal && (
         <div className="modal-overlay">
           <div className="modal">
@@ -166,9 +178,6 @@ export default function Utilisateurs() {
             </div>
             <form onSubmit={creerUtilisateur}>
               <div className="modal-body">
-                <div className="alerte alerte-warning" style={{ marginBottom: 16, fontSize: '0.8rem' }}>
-                  ℹ️ Cette opération nécessite les droits de service Supabase. Configurez la clé de service dans votre backend ou créez les comptes via le tableau de bord Supabase.
-                </div>
                 <div className="form-grille">
                   <div className="form-groupe">
                     <label className="form-label">Prénom *</label>
@@ -188,22 +197,23 @@ export default function Utilisateurs() {
                   <div className="form-groupe">
                     <label className="form-label">Mot de passe *</label>
                     <input type="password" className="form-input" value={form.password}
-                      onChange={e => setForm({ ...form, password: e.target.value })} required minLength={8} placeholder="Min. 8 caractères" />
+                      onChange={e => setForm({ ...form, password: e.target.value })}
+                      required minLength={8} placeholder="Min. 8 caractères" />
                   </div>
                   <div className="form-groupe">
                     <label className="form-label">Rôle *</label>
                     <select className="form-select" value={form.role}
                       onChange={e => setForm({ ...form, role: e.target.value })}>
-                      {ROLES.filter(r => r !== 'admin').map(r => (
-                        <option key={r} value={r}>{ROLES_LABELS[r]}</option>
-                      ))}
+                      {ROLES.map(r => <option key={r} value={r}>{ROLES_LABELS[r]}</option>)}
                     </select>
                   </div>
                 </div>
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondaire" onClick={() => setShowModal(false)}>Annuler</button>
-                <button type="submit" className="btn btn-primaire">✓ Créer</button>
+                <button type="submit" className="btn btn-primaire" disabled={saving}>
+                  {saving ? <span className="spinner" /> : '✓ Créer'}
+                </button>
               </div>
             </form>
           </div>
