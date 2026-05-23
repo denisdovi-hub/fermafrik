@@ -23,11 +23,20 @@ export default function Utilisateurs() {
   const { profil } = useAuthStore()
   const [utilisateurs, setUtilisateurs] = useState([])
   const [showModal, setShowModal] = useState(false)
+  const [showMdpModal, setShowMdpModal] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
+  const [showPasswordCreate, setShowPasswordCreate] = useState(false)
+  const [showPasswordNew, setShowPasswordNew] = useState(false)
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false)
+
   const [form, setForm] = useState({
     email: '', password: '', nom: '', prenom: '', role: 'technicien'
+  })
+
+  const [mdpForm, setMdpForm] = useState({
+    nouveau: '', confirmation: ''
   })
 
   useEffect(() => { charger() }, [])
@@ -87,6 +96,45 @@ export default function Utilisateurs() {
     }
   }
 
+  const changerMotDePasse = async (e) => {
+    e.preventDefault()
+    if (!mdpForm.nouveau || !mdpForm.confirmation) {
+      return toast.error('Remplissez tous les champs')
+    }
+    if (mdpForm.nouveau.length < 8) {
+      return toast.error('Le mot de passe doit faire au moins 8 caractères')
+    }
+    if (mdpForm.nouveau !== mdpForm.confirmation) {
+      return toast.error('Les mots de passe ne correspondent pas')
+    }
+    setSaving(true)
+    try {
+      const { error } = await supabase.auth.updateUser({ password: mdpForm.nouveau })
+      if (error) throw error
+      toast.success('Mot de passe modifié avec succès !')
+      setShowMdpModal(false)
+      setMdpForm({ nouveau: '', confirmation: '' })
+      setShowPasswordNew(false)
+      setShowPasswordConfirm(false)
+    } catch (err) {
+      toast.error('Erreur : ' + err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const reinitialiserMotDePasse = async (user) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+        redirectTo: window.location.origin
+      })
+      if (error) throw error
+      toast.success(`Email de réinitialisation envoyé à ${user.email}`)
+    } catch (err) {
+      toast.error('Erreur : ' + err.message)
+    }
+  }
+
   const changerRole = async (userId, role) => {
     if (userId === profil?.id) return toast.error('Vous ne pouvez pas modifier votre propre rôle')
     const { error } = await supabase.from('profils').update({ role }).eq('id', userId)
@@ -110,9 +158,14 @@ export default function Utilisateurs() {
           <h1 style={{ fontSize: '1.3rem', fontWeight: 800 }}>👥 Gestion des Utilisateurs</h1>
           <div className="text-gris text-sm mt-1">Accès réservé à l'administrateur</div>
         </div>
-        <button className="btn btn-primaire" onClick={() => setShowModal(true)}>
-          + Nouvel utilisateur
-        </button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button className="btn btn-secondaire" onClick={() => setShowMdpModal(true)}>
+            🔑 Changer mon mot de passe
+          </button>
+          <button className="btn btn-primaire" onClick={() => setShowModal(true)}>
+            + Nouvel utilisateur
+          </button>
+        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 24 }}>
@@ -155,10 +208,17 @@ export default function Utilisateurs() {
                   </td>
                   <td>
                     {u.id !== profil?.id && (
-                      <button className={`btn btn-sm ${u.actif ? 'btn-danger' : 'btn-primaire'}`}
-                        onClick={() => toggleActif(u)}>
-                        {u.actif ? '🔒 Désactiver' : '🔓 Activer'}
-                      </button>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button className={`btn btn-sm ${u.actif ? 'btn-danger' : 'btn-primaire'}`}
+                          onClick={() => toggleActif(u)}>
+                          {u.actif ? '🔒 Désactiver' : '🔓 Activer'}
+                        </button>
+                        <button className="btn btn-sm btn-secondaire"
+                          onClick={() => reinitialiserMotDePasse(u)}
+                          title="Envoyer un email de réinitialisation du mot de passe">
+                          🔑 Réinitialiser MDP
+                        </button>
+                      </div>
                     )}
                   </td>
                 </tr>
@@ -168,6 +228,7 @@ export default function Utilisateurs() {
         </div>
       </div>
 
+      {/* Modal création utilisateur */}
       {showModal && (
         <div className="modal-overlay">
           <div className="modal">
@@ -196,9 +257,28 @@ export default function Utilisateurs() {
                   </div>
                   <div className="form-groupe">
                     <label className="form-label">Mot de passe *</label>
-                    <input type="password" className="form-input" value={form.password}
-                      onChange={e => setForm({ ...form, password: e.target.value })}
-                      required minLength={8} placeholder="Min. 8 caractères" />
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type={showPasswordCreate ? 'text' : 'password'}
+                        className="form-input"
+                        value={form.password}
+                        onChange={e => setForm({ ...form, password: e.target.value })}
+                        required minLength={8}
+                        placeholder="Min. 8 caractères"
+                        style={{ paddingRight: 44 }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPasswordCreate(!showPasswordCreate)}
+                        style={{
+                          position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                          background: 'none', border: 'none', cursor: 'pointer',
+                          color: 'var(--gris-moyen)', fontSize: '1.1rem', padding: 0, lineHeight: 1
+                        }}
+                      >
+                        {showPasswordCreate ? '🙈' : '👁️'}
+                      </button>
+                    </div>
                   </div>
                   <div className="form-groupe">
                     <label className="form-label">Rôle *</label>
@@ -213,6 +293,70 @@ export default function Utilisateurs() {
                 <button type="button" className="btn btn-secondaire" onClick={() => setShowModal(false)}>Annuler</button>
                 <button type="submit" className="btn btn-primaire" disabled={saving}>
                   {saving ? <span className="spinner" /> : '✓ Créer'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal changement de mot de passe */}
+      {showMdpModal && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <div className="modal-titre">🔑 Changer mon mot de passe</div>
+              <button style={{ background: 'none', border: 'none', color: 'var(--gris-moyen)', cursor: 'pointer', fontSize: '1.2rem' }}
+                onClick={() => { setShowMdpModal(false); setMdpForm({ nouveau: '', confirmation: '' }) }}>✕</button>
+            </div>
+            <form onSubmit={changerMotDePasse}>
+              <div className="modal-body">
+                <div className="form-grille">
+                  <div className="form-groupe">
+                    <label className="form-label">Nouveau mot de passe *</label>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type={showPasswordNew ? 'text' : 'password'}
+                        className="form-input"
+                        value={mdpForm.nouveau}
+                        onChange={e => setMdpForm({ ...mdpForm, nouveau: e.target.value })}
+                        required minLength={8}
+                        placeholder="Min. 8 caractères"
+                        style={{ paddingRight: 44 }}
+                      />
+                      <button type="button" onClick={() => setShowPasswordNew(!showPasswordNew)}
+                        style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gris-moyen)', fontSize: '1.1rem', padding: 0, lineHeight: 1 }}>
+                        {showPasswordNew ? '🙈' : '👁️'}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="form-groupe">
+                    <label className="form-label">Confirmer le mot de passe *</label>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type={showPasswordConfirm ? 'text' : 'password'}
+                        className="form-input"
+                        value={mdpForm.confirmation}
+                        onChange={e => setMdpForm({ ...mdpForm, confirmation: e.target.value })}
+                        required minLength={8}
+                        placeholder="Répétez le mot de passe"
+                        style={{ paddingRight: 44 }}
+                      />
+                      <button type="button" onClick={() => setShowPasswordConfirm(!showPasswordConfirm)}
+                        style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gris-moyen)', fontSize: '1.1rem', padding: 0, lineHeight: 1 }}>
+                        {showPasswordConfirm ? '🙈' : '👁️'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondaire"
+                  onClick={() => { setShowMdpModal(false); setMdpForm({ nouveau: '', confirmation: '' }) }}>
+                  Annuler
+                </button>
+                <button type="submit" className="btn btn-primaire" disabled={saving}>
+                  {saving ? <span className="spinner" /> : '✓ Enregistrer'}
                 </button>
               </div>
             </form>
