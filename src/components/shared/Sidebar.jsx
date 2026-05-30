@@ -35,6 +35,15 @@ export default function Sidebar({ open, onClose }) {
     ...(estAdmin() ? [{ label: 'Utilisateurs', icon: '👥', path: '/utilisateurs' }] : []),
   ]
 
+  // Pages principales pour la barre mobile (max 5)
+  const navMobile = [
+    { label: 'Accueil', icon: '📊', path: '/' },
+    { label: 'Production', icon: '🥚', path: '/production' },
+    { label: 'Cheptel', icon: '🐔', path: '/cheptel' },
+    { label: 'Stock', icon: '🌽', path: '/stock' },
+    { label: 'Menu', icon: '☰', path: null },
+  ]
+
   const go = (path) => {
     navigate(path)
     onClose?.()
@@ -58,6 +67,7 @@ export default function Sidebar({ open, onClose }) {
         />
       )}
 
+      {/* Sidebar desktop */}
       <aside className={`sidebar ${open ? 'open' : ''}`}>
         <div className="sidebar-logo">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -84,10 +94,7 @@ export default function Sidebar({ open, onClose }) {
         </nav>
 
         {profil && (
-          <div style={{
-            padding: '16px',
-            borderTop: '1px solid var(--bordure)',
-          }}>
+          <div style={{ padding: '16px', borderTop: '1px solid var(--bordure)' }}>
             <div style={{
               background: 'var(--vert-fonce)',
               borderRadius: 'var(--radius-sm)',
@@ -113,6 +120,21 @@ export default function Sidebar({ open, onClose }) {
           </div>
         )}
       </aside>
+
+      {/* Barre de navigation mobile en bas */}
+      <nav className="mobile-bottom-nav">
+        {navMobile.map(item => (
+          <button
+            key={item.path || 'menu'}
+            className={`mobile-nav-item ${item.path && location.pathname === item.path ? 'active' : ''}`}
+            onClick={() => item.path ? go(item.path) : onClose?.() || go('/')}
+            style={item.path === null ? { cursor: 'pointer' } : {}}
+          >
+            <span className="mobile-nav-icon">{item.icon}</span>
+            <span className="mobile-nav-label">{item.label}</span>
+          </button>
+        ))}
+      </nav>
     </>
   )
 }
