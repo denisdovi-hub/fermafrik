@@ -177,11 +177,11 @@ export default function Cheptel() {
                   : 0
                 return (
                   <tr key={b.id}>
-                    <td className="font-bold">{b.nom}</td>
-                    <td className="text-gris text-sm">{b.race}</td>
-                    <td className="font-mono text-xs">{b.date_mise_en_place}</td>
-                    <td className="font-mono">{b.effectif_initial.toLocaleString('fr-FR')}</td>
-                    <td className="font-mono font-bold">{b.effectif_actuel.toLocaleString('fr-FR')}</td>
+                    <td data-label="Bande" className="font-bold">{b.nom}</td>
+                    <td data-label="Race" className="text-gris text-sm">{b.race}</td>
+                    <td data-label="Mise en place" className="font-mono text-xs">{b.date_mise_en_place}</td>
+                    <td data-label="Effectif initial" className="font-mono">{b.effectif_initial.toLocaleString('fr-FR')}</td>
+                    <td data-label="Effectif actuel" className="font-mono font-bold">{b.effectif_actuel.toLocaleString('fr-FR')}</td>
                     <td>
                       <span className={`badge ${parseFloat(tauxMort) > 5 ? 'badge-rouge' : 'badge-vert'}`}>
                         {tauxMort}%
@@ -232,8 +232,8 @@ export default function Cheptel() {
             <tbody>
               {mouvements.map(m => (
                 <tr key={m.id}>
-                  <td className="font-mono text-xs">{m.date_mouvement}</td>
-                  <td>{m.bandes?.nom}</td>
+                  <td data-label="Date" className="font-mono text-xs">{m.date_mouvement}</td>
+                  <td data-label="Bande">{m.bandes?.nom}</td>
                   <td>
                     <span className={`badge ${
                       m.type_mouvement === 'mortalite' ? 'badge-rouge' :
@@ -245,8 +245,8 @@ export default function Cheptel() {
                        m.type_mouvement === 'achat' ? '🛒 Achat' : '🔄 Réforme'}
                     </span>
                   </td>
-                  <td className="font-mono font-bold">{m.quantite}</td>
-                  <td className="text-sm text-gris">{m.cause || m.acheteur_vendeur || '—'}</td>
+                  <td data-label="Quantité" className="font-mono font-bold">{m.quantite}</td>
+                  <td data-label="Cause/Acheteur" className="text-sm text-gris">{m.cause || m.acheteur_vendeur || "—"}</td>
                   <td className="font-mono">{m.prix_total ? m.prix_total.toLocaleString('fr-FR') + ' F' : '—'}</td>
                 </tr>
               ))}

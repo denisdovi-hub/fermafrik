@@ -174,7 +174,7 @@ export default function Traitements() {
             <tbody>
               {traitements.map(t => (
                 <tr key={t.id}>
-                  <td>{t.bandes?.nom}</td>
+                  <td data-label="Bande">{t.bandes?.nom}</td>
                   <td>
                     <span className={`badge ${
                       t.type_traitement === 'antibiotique' ? 'badge-rouge' :
@@ -187,15 +187,15 @@ export default function Traitements() {
                     <div className="font-bold">{t.produit}</div>
                     {t.molecule && <div className="text-xs text-gris">{t.molecule}</div>}
                   </td>
-                  <td className="text-sm text-gris">{t.raison || '—'}</td>
-                  <td className="font-mono text-xs">{t.date_debut}</td>
-                  <td className="font-mono text-xs">{t.date_fin || '—'}</td>
+                  <td data-label="Raison" className="text-sm text-gris">{t.raison || "—"}</td>
+                  <td data-label="Début" className="font-mono text-xs">{t.date_debut}</td>
+                  <td data-label="Fin" className="font-mono text-xs">{t.date_fin || "—"}</td>
                   <td>
                     {t.temps_attente_jours > 0 ? (
                       <span className="badge badge-rouge">{t.temps_attente_jours}j</span>
                     ) : <span className="badge badge-vert">Aucun</span>}
                   </td>
-                  <td className="font-mono">{t.cout > 0 ? t.cout.toLocaleString('fr-FR') : '—'}</td>
+                  <td data-label="Coût (FCFA)" className="font-mono">{t.cout > 0 ? t.cout.toLocaleString('fr-FR') : '—'}</td>
                 </tr>
               ))}
               {traitements.length === 0 && (

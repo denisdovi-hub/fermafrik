@@ -189,8 +189,8 @@ export default function Utilisateurs() {
             <tbody>
               {utilisateurs.map(u => (
                 <tr key={u.id}>
-                  <td className="font-bold">{u.prenom} {u.nom}</td>
-                  <td className="text-sm text-gris font-mono">{u.email}</td>
+                  <td data-label="Nom" className="font-bold">{u.prenom} {u.nom}</td>
+                  <td data-label="Email" className="text-sm text-gris font-mono">{u.email}</td>
                   <td>
                     {u.id === profil?.id ? (
                       <span className="badge badge-ocre">{ROLES_LABELS[u.role]}</span>

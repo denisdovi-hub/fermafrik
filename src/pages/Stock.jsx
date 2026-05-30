@@ -182,11 +182,11 @@ export default function Stock() {
             <tbody>
               {aliments.map(a => (
                 <tr key={a.id}>
-                  <td className="font-bold">{a.nom}</td>
+                  <td data-label="Aliment" className="font-bold">{a.nom}</td>
                   <td><span className="badge badge-bleu">{a.type_aliment}</span></td>
-                  <td className="font-mono font-bold">{a.stock_actuel_kg.toLocaleString('fr-FR')}</td>
-                  <td className="font-mono text-gris">{a.stock_minimum_kg.toLocaleString('fr-FR')}</td>
-                  <td className="font-mono">{a.prix_unitaire_kg.toLocaleString('fr-FR')}</td>
+                  <td data-label="Stock actuel (kg)" className="font-mono font-bold">{a.stock_actuel_kg.toLocaleString('fr-FR')}</td>
+                  <td data-label="Stock minimum (kg)" className="font-mono text-gris">{a.stock_minimum_kg.toLocaleString('fr-FR')}</td>
+                  <td data-label="Prix/kg (FCFA)" className="font-mono">{a.prix_unitaire_kg.toLocaleString('fr-FR')}</td>
                   <td className="font-mono">{(a.stock_actuel_kg * a.prix_unitaire_kg).toLocaleString('fr-FR')}</td>
                   <td>
                     <span className={`badge ${a.stock_actuel_kg <= a.stock_minimum_kg ? 'badge-rouge' : a.stock_actuel_kg <= a.stock_minimum_kg * 1.5 ? 'badge-ocre' : 'badge-vert'}`}>
@@ -214,15 +214,15 @@ export default function Stock() {
             <tbody>
               {mouvements.map(m => (
                 <tr key={m.id}>
-                  <td className="font-mono text-xs">{m.date_mouvement}</td>
-                  <td>{m.stock_aliments?.nom}</td>
+                  <td data-label="Date" className="font-mono text-xs">{m.date_mouvement}</td>
+                  <td data-label="Aliment">{m.stock_aliments?.nom}</td>
                   <td>
                     <span className={`badge ${m.type_mouvement === 'entree' ? 'badge-vert' : m.type_mouvement === 'sortie' ? 'badge-rouge' : 'badge-ocre'}`}>
                       {m.type_mouvement === 'entree' ? '↑ Entrée' : m.type_mouvement === 'sortie' ? '↓ Sortie' : '⚖ Ajustement'}
                     </span>
                   </td>
-                  <td className="font-mono font-bold">{m.quantite_kg.toLocaleString('fr-FR')}</td>
-                  <td className="text-sm text-gris">{m.fournisseur || '—'}</td>
+                  <td data-label="Quantité (kg)" className="font-mono font-bold">{m.quantite_kg.toLocaleString('fr-FR')}</td>
+                  <td data-label="Fournisseur" className="text-sm text-gris">{m.fournisseur || "—"}</td>
                   <td className="font-mono">{m.montant_total ? m.montant_total.toLocaleString('fr-FR') : '—'}</td>
                 </tr>
               ))}

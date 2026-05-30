@@ -786,3 +786,48 @@ body {
     max-width: 100% !important;
   }
 }
+
+/* ============================================================
+   CORRECTIONS SUPPLEMENTAIRES MOBILE
+   ============================================================ */
+@media (max-width: 768px) {
+
+  /* Empêcher tout débordement horizontal */
+  body, .app-layout, .main-content, .page-content {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+
+  /* Topbar : bouton alertes plus compact */
+  .topbar button, .topbar .btn {
+    font-size: 0.72rem;
+    padding: 5px 8px;
+    white-space: nowrap;
+  }
+
+  /* Cartes KPI sans débordement */
+  .kpi-carte {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  /* Boutons en haut de page : pleine largeur */
+  .flex.items-center.justify-between > div:last-child {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+  }
+
+  .flex.items-center.justify-between > div:last-child .btn {
+    flex: 1;
+    font-size: 0.78rem;
+    padding: 8px 10px;
+    justify-content: center;
+  }
+
+  /* Tableau Utilisateurs : masquer colonnes moins importantes */
+  .tableau td[data-label="Email"] {
+    font-size: 0.72rem;
+    word-break: break-all;
+  }
+}

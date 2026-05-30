@@ -225,16 +225,16 @@ export default function Sanitaire() {
                          c.date_prevue < today ? '⚠️ Retard' : '🕐 Prévu'}
                       </span>
                     </td>
-                    <td>{c.bandes?.nom}</td>
+                    <td data-label="Bande">{c.bandes?.nom}</td>
                     <td>
                       <div style={{ fontWeight: 600 }}>{c.vaccins_ref?.nom}</div>
                       <div style={{ fontSize: '0.72rem', color: 'var(--gris-moyen)' }}>
                         {c.vaccins_ref?.maladie_ciblee}
                       </div>
                     </td>
-                    <td className="font-mono text-xs">{c.date_prevue}</td>
-                    <td className="font-mono text-xs">{c.date_realisee || '—'}</td>
-                    <td className="text-sm">{c.lot_vaccin || '—'}</td>
+                    <td data-label="Date prévue" className="font-mono text-xs">{c.date_prevue}</td>
+                    <td data-label="Date réalisée" className="font-mono text-xs">{c.date_realisee || "—"}</td>
+                    <td data-label="Lot vaccin" className="text-sm">{c.lot_vaccin || "—"}</td>
                     {peutEcrire() && (
                       <td>
                         {c.statut === 'prevu' && (
@@ -270,10 +270,10 @@ export default function Sanitaire() {
               <tbody>
                 {vaccinsRef.map(v => (
                   <tr key={v.id}>
-                    <td className="font-bold">{v.nom}</td>
-                    <td className="text-sm">{v.maladie_ciblee}</td>
-                    <td className="text-sm text-gris">{v.voie_administration}</td>
-                    <td className="font-mono">{v.age_recommande_jours ?? '—'}</td>
+                    <td data-label="Vaccin" className="font-bold">{v.nom}</td>
+                    <td data-label="Maladie ciblée" className="text-sm">{v.maladie_ciblee}</td>
+                    <td data-label="Voie" className="text-sm text-gris">{v.voie_administration}</td>
+                    <td data-label="Âge (jours)" className="font-mono">{v.age_recommande_jours ?? "—"}</td>
                     <td className="font-mono">{v.intervalle_rappel_jours ? `${v.intervalle_rappel_jours}j` : '—'}</td>
                     <td>{v.est_anti_stress ? <span className="badge badge-vert">✓ Oui</span> : <span className="badge badge-gris">Non</span>}</td>
                   </tr>
@@ -313,13 +313,13 @@ export default function Sanitaire() {
                          e.type_evenement}
                       </span>
                     </td>
-                    <td>{e.bandes?.nom}</td>
-                    <td className="font-mono text-xs">{e.date_evenement}</td>
+                    <td data-label="Bande">{e.bandes?.nom}</td>
+                    <td data-label="Date" className="font-mono text-xs">{e.date_evenement}</td>
                     <td className="font-mono text-xs" style={{ color: e.date_rappel && e.date_rappel <= today ? 'var(--rouge-alerte)' : '' }}>
                       {e.date_rappel || '—'}
                     </td>
-                    <td className="text-sm text-gris">{e.description || '—'}</td>
-                    <td className="text-sm">{e.profils?.prenom || '—'}</td>
+                    <td data-label="Description" className="text-sm text-gris">{e.description || "—"}</td>
+                    <td data-label="Réalisé par" className="text-sm">{e.profils?.prenom || "—"}</td>
                   </tr>
                 ))}
                 {evenements.length === 0 && (
