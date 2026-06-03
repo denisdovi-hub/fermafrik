@@ -11,11 +11,11 @@ const ROLES_LABELS = {
 }
 
 const ROLE_COLORS = {
-  admin: 'var(--or)',
-  gerant: 'var(--vert-clair)',
-  technicien: 'var(--bleu-info)',
-  comptable: 'var(--ocre-clair)',
-  observateur: 'var(--gris-moyen)'
+  admin: '#fbbf24',
+  gerant: '#60a5fa',
+  technicien: '#34d399',
+  comptable: '#f59e0b',
+  observateur: '#9ca3af'
 }
 
 export default function Sidebar({ open, onClose }) {
@@ -27,8 +27,7 @@ export default function Sidebar({ open, onClose }) {
     { label: 'Tableau de bord', icon: '📊', path: '/' },
     { label: 'Production', icon: '🥚', path: '/production' },
     { label: 'Cheptel', icon: '🐔', path: '/cheptel' },
-    { label: 'Vaccins & Sanitaire', icon: '💉', path: '/sanitaire' },
-    { label: 'Traitements', icon: '💊', path: '/traitements' },
+    { label: 'Santé & Traitements', icon: '💉', path: '/sanitaire' },
     { label: 'Stock Aliments', icon: '🌽', path: '/stock' },
     ...(peutGererCompta() ? [{ label: 'Comptabilité', icon: '💰', path: '/comptabilite' }] : []),
     { label: 'Bilans & Rapports', icon: '📈', path: '/rapports' },
@@ -54,13 +53,22 @@ export default function Sidebar({ open, onClose }) {
     toast.success('Déconnexion réussie')
   }
 
+  // Une page est active si elle correspond exactement, ou si on est sur /traitements
+  // qui est redirigé vers /sanitaire après fusion
+  const isActive = (path) => {
+    if (path === '/sanitaire') {
+      return location.pathname === '/sanitaire' || location.pathname === '/traitements'
+    }
+    return location.pathname === path
+  }
+
   return (
     <>
       {open && (
         <div
           style={{
             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-            zIndex: 150, display: 'none'
+            zIndex: 150
           }}
           className="sidebar-overlay"
           onClick={onClose}
@@ -84,7 +92,7 @@ export default function Sidebar({ open, onClose }) {
           {navItems.map(item => (
             <button
               key={item.path}
-              className={`nav-item ${location.pathname === item.path ? 'active' : ''}`}
+              className={`nav-item ${isActive(item.path) ? 'active' : ''}`}
               onClick={() => go(item.path)}
             >
               <span style={{ fontSize: '1rem' }}>{item.icon}</span>
@@ -94,14 +102,14 @@ export default function Sidebar({ open, onClose }) {
         </nav>
 
         {profil && (
-          <div style={{ padding: '16px', borderTop: '1px solid var(--bordure)' }}>
+          <div style={{ padding: '16px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
             <div style={{
-              background: 'var(--vert-fonce)',
+              background: 'rgba(255,255,255,0.08)',
               borderRadius: 'var(--radius-sm)',
               padding: '12px',
               marginBottom: 10
             }}>
-              <div style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--blanc)' }}>
+              <div style={{ fontWeight: 700, fontSize: '0.875rem', color: '#ffffff' }}>
                 {profil.prenom} {profil.nom}
               </div>
               <div style={{
@@ -114,7 +122,7 @@ export default function Sidebar({ open, onClose }) {
               </div>
             </div>
             <button className="btn btn-secondaire w-full" onClick={handleLogout}
-              style={{ justifyContent: 'center', fontSize: '0.8rem' }}>
+              style={{ justifyContent: 'center', fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)', borderColor: 'rgba(255,255,255,0.15)' }}>
               🚪 Se déconnecter
             </button>
           </div>
@@ -122,13 +130,12 @@ export default function Sidebar({ open, onClose }) {
       </aside>
 
       {/* Barre de navigation mobile en bas */}
-      <nav className="mobile-bottom-nav">
+      <nav className="mobile-nav">
         {navMobile.map(item => (
           <button
             key={item.path || 'menu'}
-            className={`mobile-nav-item ${item.path && location.pathname === item.path ? 'active' : ''}`}
-            onClick={() => item.path ? go(item.path) : onClose?.() || go('/')}
-            style={item.path === null ? { cursor: 'pointer' } : {}}
+            className={`mobile-nav-item ${item.path && isActive(item.path) ? 'active' : ''}`}
+            onClick={() => item.path ? go(item.path) : go('/')}
           >
             <span className="mobile-nav-icon">{item.icon}</span>
             <span className="mobile-nav-label">{item.label}</span>
