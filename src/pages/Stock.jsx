@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
 import { format } from 'date-fns'
@@ -12,6 +12,11 @@ export default function Stock() {
   const [showModalAliment, setShowModalAliment] = useState(false)
   const [showModalMvt, setShowModalMvt] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [photoFile, setPhotoFile] = useState(null)
+  const [photoPreview, setPhotoPreview] = useState(null)
+  const fileInputRef = useRef(null)
+  const cameraInputRef = useRef(null)
   const today = format(new Date(), 'yyyy-MM-dd')
 
   const [formAliment, setFormAliment] = useState({
@@ -39,6 +44,30 @@ export default function Stock() {
     setLoading(false)
   }
 
+  const handlePhoto = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Photo trop lourde (max 5 Mo)')
+      return
+    }
+    setPhotoFile(file)
+    setPhotoPreview(URL.createObjectURL(file))
+  }
+
+  const supprimerPhoto = () => {
+    setPhotoFile(null)
+    setPhotoPreview(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+    if (cameraInputRef.current) cameraInputRef.current.value = ''
+  }
+
+  const resetMvtModal = () => {
+    setShowModalMvt(false)
+    supprimerPhoto()
+    setFormMvt({ aliment_id: '', date_mouvement: today, type_mouvement: 'entree', quantite_kg: '', prix_unitaire: '', fournisseur: '', notes: '' })
+  }
+
   const saveAliment = async (e) => {
     e.preventDefault()
     try {
@@ -58,10 +87,29 @@ export default function Stock() {
 
   const saveMvt = async (e) => {
     e.preventDefault()
+    if (formMvt.type_mouvement === 'entree' && !photoFile) {
+      return toast.error('📸 Une photo justificative est obligatoire pour une entrée de stock')
+    }
+
+    setSaving(true)
     try {
       const qte = parseFloat(formMvt.quantite_kg)
       const aliment = aliments.find(a => a.id === formMvt.aliment_id)
       if (!aliment) return toast.error('Sélectionnez un aliment')
+
+      let photoUrl = null
+
+      // Upload photo si entrée
+      if (photoFile) {
+        const ext = photoFile.name.split('.').pop()
+        const fileName = `stock/${Date.now()}_${profil?.id}.${ext}`
+        const { error: uploadError } = await supabase.storage
+          .from('justificatifs')
+          .upload(fileName, photoFile, { contentType: photoFile.type })
+        if (uploadError) throw uploadError
+        const { data: urlData } = supabase.storage.from('justificatifs').getPublicUrl(fileName)
+        photoUrl = urlData.publicUrl
+      }
 
       const montant = formMvt.prix_unitaire ? qte * parseFloat(formMvt.prix_unitaire) : null
       const { error: errMvt } = await supabase.from('mouvements_stock').insert({
@@ -69,24 +117,27 @@ export default function Stock() {
         quantite_kg: qte,
         prix_unitaire: formMvt.prix_unitaire ? parseFloat(formMvt.prix_unitaire) : null,
         montant_total: montant,
-        enregistre_par: profil?.id
+        enregistre_par: profil?.id,
+        photo_url: photoUrl
       })
       if (errMvt) throw errMvt
 
-      // Mise à jour stock
       let nvStock = aliment.stock_actuel_kg
       if (formMvt.type_mouvement === 'entree') nvStock += qte
       else if (formMvt.type_mouvement === 'sortie') nvStock -= qte
-      else nvStock = qte // ajustement
+      else nvStock = qte
 
       if (nvStock < 0) return toast.error('Stock insuffisant !')
 
       await supabase.from('stock_aliments').update({ stock_actuel_kg: nvStock }).eq('id', formMvt.aliment_id)
       toast.success('Mouvement enregistré !')
-      setShowModalMvt(false)
-      setFormMvt({ aliment_id: '', date_mouvement: today, type_mouvement: 'entree', quantite_kg: '', prix_unitaire: '', fournisseur: '', notes: '' })
+      resetMvtModal()
       charger()
-    } catch (err) { toast.error(err.message) }
+    } catch (err) {
+      toast.error('Erreur : ' + err.message)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const totalStockValeur = aliments.reduce((s, a) => s + (a.stock_actuel_kg * a.prix_unitaire_kg), 0)
@@ -132,7 +183,7 @@ export default function Stock() {
         </div>
         <div className="kpi-carte">
           <div style={{ fontSize: '1.5rem', marginBottom: 8 }}>⚠️</div>
-          <div className="kpi-valeur" style={{ color: alertes.length > 0 ? 'var(--rouge-alerte)' : 'var(--vert-clair)' }}>
+          <div className="kpi-valeur" style={{ color: alertes.length > 0 ? 'var(--rouge-alerte)' : '#16a34a' }}>
             {alertes.length}
           </div>
           <div className="kpi-label">Stocks critiques</div>
@@ -146,13 +197,12 @@ export default function Stock() {
         </div>
       </div>
 
-      {/* Graphique stocks */}
       {chartData.length > 0 && (
         <div className="graphique-container">
           <div className="graphique-titre">📊 Niveaux de stock vs minimum</div>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={chartData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(45,138,82,0.1)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
               <XAxis dataKey="name" tick={{ fill: 'var(--gris-moyen)', fontSize: 11 }} />
               <YAxis tick={{ fill: 'var(--gris-moyen)', fontSize: 11 }} />
               <Tooltip contentStyle={{ background: 'var(--bg-carte)', border: '1px solid var(--bordure)', borderRadius: 8, fontSize: '0.75rem' }} />
@@ -163,67 +213,62 @@ export default function Stock() {
         </div>
       )}
 
-      {/* Tableau aliments */}
-      <div className="carte mb-6">
-        <div className="carte-header"><div className="carte-titre">Aliments en stock</div></div>
+      <div className="carte" style={{ marginBottom: 24 }}>
+        <div className="carte-header"><div className="carte-titre">Inventaire actuel</div></div>
         <div className="tableau-container">
           <table className="tableau">
             <thead>
-              <tr>
-                <th>Aliment</th>
-                <th>Type</th>
-                <th>Stock actuel (kg)</th>
-                <th>Stock minimum (kg)</th>
-                <th>Prix/kg (FCFA)</th>
-                <th>Valeur (FCFA)</th>
-                <th>Statut</th>
-              </tr>
+              <tr><th>Aliment</th><th>Type</th><th>Stock actuel</th><th>Minimum</th><th>Prix/kg</th><th>Statut</th></tr>
             </thead>
             <tbody>
               {aliments.map(a => (
                 <tr key={a.id}>
-                  <td data-label="Aliment" className="font-bold">{a.nom}</td>
-                  <td><span className="badge badge-bleu">{a.type_aliment}</span></td>
-                  <td data-label="Stock actuel (kg)" className="font-mono font-bold">{a.stock_actuel_kg.toLocaleString('fr-FR')}</td>
-                  <td data-label="Stock minimum (kg)" className="font-mono text-gris">{a.stock_minimum_kg.toLocaleString('fr-FR')}</td>
-                  <td data-label="Prix/kg (FCFA)" className="font-mono">{a.prix_unitaire_kg.toLocaleString('fr-FR')}</td>
-                  <td className="font-mono">{(a.stock_actuel_kg * a.prix_unitaire_kg).toLocaleString('fr-FR')}</td>
+                  <td className="font-bold">{a.nom}</td>
+                  <td><span className="badge badge-neutral">{a.type_aliment}</span></td>
+                  <td className="font-mono font-bold">{a.stock_actuel_kg.toLocaleString('fr-FR')} kg</td>
+                  <td className="font-mono text-gris">{a.stock_minimum_kg.toLocaleString('fr-FR')} kg</td>
+                  <td className="font-mono">{a.prix_unitaire_kg.toLocaleString('fr-FR')} FCFA</td>
                   <td>
-                    <span className={`badge ${a.stock_actuel_kg <= a.stock_minimum_kg ? 'badge-rouge' : a.stock_actuel_kg <= a.stock_minimum_kg * 1.5 ? 'badge-ocre' : 'badge-vert'}`}>
-                      {a.stock_actuel_kg <= a.stock_minimum_kg ? '⚠️ Critique' : a.stock_actuel_kg <= a.stock_minimum_kg * 1.5 ? '⚡ Faible' : '✓ OK'}
+                    <span className={`badge ${a.stock_actuel_kg <= a.stock_minimum_kg ? 'badge-danger' : a.stock_actuel_kg <= a.stock_minimum_kg * 1.5 ? 'badge-warning' : 'badge-success'}`}>
+                      {a.stock_actuel_kg <= a.stock_minimum_kg ? '⚠ Critique' : a.stock_actuel_kg <= a.stock_minimum_kg * 1.5 ? '↓ Bas' : '✓ OK'}
                     </span>
                   </td>
                 </tr>
               ))}
-              {aliments.length === 0 && (
-                <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--gris-moyen)', padding: 24 }}>Aucun aliment enregistré</td></tr>
-              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Mouvements */}
       <div className="carte">
         <div className="carte-header"><div className="carte-titre">Mouvements récents</div></div>
         <div className="tableau-container">
           <table className="tableau">
             <thead>
-              <tr><th>Date</th><th>Aliment</th><th>Type</th><th>Quantité (kg)</th><th>Fournisseur</th><th>Montant (FCFA)</th></tr>
+              <tr><th>Date</th><th>Aliment</th><th>Type</th><th>Quantité (kg)</th><th>Fournisseur</th><th>Montant (FCFA)</th><th>Photo</th></tr>
             </thead>
             <tbody>
               {mouvements.map(m => (
                 <tr key={m.id}>
-                  <td data-label="Date" className="font-mono text-xs">{m.date_mouvement}</td>
-                  <td data-label="Aliment">{m.stock_aliments?.nom}</td>
+                  <td className="font-mono text-xs">{m.date_mouvement}</td>
+                  <td>{m.stock_aliments?.nom}</td>
                   <td>
-                    <span className={`badge ${m.type_mouvement === 'entree' ? 'badge-vert' : m.type_mouvement === 'sortie' ? 'badge-rouge' : 'badge-ocre'}`}>
-                      {m.type_mouvement === 'entree' ? '↑ Entrée' : m.type_mouvement === 'sortie' ? '↓ Sortie' : '⚖ Ajustement'}
+                    <span className={`badge ${m.type_mouvement === 'entree' ? 'badge-success' : m.type_mouvement === 'sortie' ? 'badge-danger' : 'badge-warning'}`}>
+                      {m.type_mouvement === 'entree' ? '↑ Entrée' : m.type_mouvement === 'sortie' ? '↓ Sortie' : '⚖ Ajust.'}
                     </span>
                   </td>
-                  <td data-label="Quantité (kg)" className="font-mono font-bold">{m.quantite_kg.toLocaleString('fr-FR')}</td>
-                  <td data-label="Fournisseur" className="text-sm text-gris">{m.fournisseur || "—"}</td>
+                  <td className="font-mono font-bold">{m.quantite_kg?.toLocaleString('fr-FR')}</td>
+                  <td className="text-sm text-gris">{m.fournisseur || '—'}</td>
                   <td className="font-mono">{m.montant_total ? m.montant_total.toLocaleString('fr-FR') : '—'}</td>
+                  <td>
+                    {m.photo_url
+                      ? <a href={m.photo_url} target="_blank" rel="noopener noreferrer"
+                          style={{ color: 'var(--bleu-info)', fontSize: '0.8rem', textDecoration: 'underline' }}>
+                          📸 Voir
+                        </a>
+                      : <span style={{ color: 'var(--gris-moyen)', fontSize: '0.75rem' }}>—</span>
+                    }
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -297,7 +342,7 @@ export default function Stock() {
             <div className="modal-header">
               <div className="modal-titre">📦 Mouvement de stock</div>
               <button style={{ background: 'none', border: 'none', color: 'var(--gris-moyen)', cursor: 'pointer', fontSize: '1.2rem' }}
-                onClick={() => setShowModalMvt(false)}>✕</button>
+                onClick={resetMvtModal}>✕</button>
             </div>
             <form onSubmit={saveMvt}>
               <div className="modal-body">
@@ -349,10 +394,61 @@ export default function Stock() {
                   <textarea className="form-textarea" value={formMvt.notes}
                     onChange={e => setFormMvt({ ...formMvt, notes: e.target.value })} />
                 </div>
+
+                {/* Photo obligatoire pour les entrées */}
+                {formMvt.type_mouvement === 'entree' && (
+                  <div className="form-groupe">
+                    <label className="form-label">
+                      📸 Photo justificative <span style={{ color: 'var(--rouge-alerte)' }}>*</span>
+                    </label>
+                    {!photoPreview ? (
+                      <div style={{
+                        border: '2px dashed #e5e7eb', borderRadius: 10, padding: '20px',
+                        textAlign: 'center', background: '#f9fafb'
+                      }}>
+                        <div style={{ fontSize: '2rem', marginBottom: 8 }}>📷</div>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--gris-moyen)', marginBottom: 12 }}>
+                          Prenez une photo de la livraison d'aliments
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+                          <button type="button" className="btn btn-primaire btn-sm"
+                            onClick={() => cameraInputRef.current?.click()}>
+                            📸 Prendre une photo
+                          </button>
+                          <button type="button" className="btn btn-secondaire btn-sm"
+                            onClick={() => fileInputRef.current?.click()}>
+                            🖼️ Choisir un fichier
+                          </button>
+                        </div>
+                        <input ref={cameraInputRef} type="file" accept="image/*" capture="environment"
+                          style={{ display: 'none' }} onChange={handlePhoto} />
+                        <input ref={fileInputRef} type="file" accept="image/*"
+                          style={{ display: 'none' }} onChange={handlePhoto} />
+                      </div>
+                    ) : (
+                      <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+                        <img src={photoPreview} alt="Aperçu"
+                          style={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 10, border: '1px solid #e5e7eb' }} />
+                        <button type="button" onClick={supprimerPhoto}
+                          style={{
+                            position: 'absolute', top: 8, right: 8, background: 'var(--rouge-alerte)',
+                            color: 'white', border: 'none', borderRadius: '50%', width: 28, height: 28,
+                            cursor: 'pointer', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                          }}>✕</button>
+                        <div style={{ fontSize: '0.75rem', color: '#16a34a', marginTop: 6, textAlign: 'center' }}>
+                          ✓ Photo ajoutée
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondaire" onClick={() => setShowModalMvt(false)}>Annuler</button>
-                <button type="submit" className="btn btn-primaire">✓ Enregistrer</button>
+                <button type="button" className="btn btn-secondaire" onClick={resetMvtModal}>Annuler</button>
+                <button type="submit" className="btn btn-primaire"
+                  disabled={saving || (formMvt.type_mouvement === 'entree' && !photoFile)}>
+                  {saving ? <span className="spinner" /> : '✓ Enregistrer'}
+                </button>
               </div>
             </form>
           </div>

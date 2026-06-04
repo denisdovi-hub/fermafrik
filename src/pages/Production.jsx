@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
 import { format, subDays } from 'date-fns'
@@ -19,6 +19,10 @@ export default function Production() {
   const [showModal, setShowModal] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [photoFile, setPhotoFile] = useState(null)
+  const [photoPreview, setPhotoPreview] = useState(null)
+  const fileInputRef = useRef(null)
+  const cameraInputRef = useRef(null)
   const today = format(new Date(), 'yyyy-MM-dd')
 
   const [form, setForm] = useState({
@@ -31,9 +35,7 @@ export default function Production() {
     notes: ''
   })
 
-  useEffect(() => {
-    charger()
-  }, [])
+  useEffect(() => { charger() }, [])
 
   const charger = async () => {
     setLoading(true)
@@ -49,7 +51,6 @@ export default function Production() {
 
     setProductions(p || [])
 
-    // Graph 30 jours
     const debut = format(subDays(new Date(), 29), 'yyyy-MM-dd')
     const { data: hist } = await supabase
       .from('production_oeufs')
@@ -79,24 +80,51 @@ export default function Production() {
   const handleChange = e => {
     const { name, value } = e.target
     const updated = { ...form, [name]: value }
-
-    // Calcul auto plateaux
     if (name === 'oeufs_produits') {
       const prod = parseInt(value) || 0
-      const plateaux = (prod / OEUFS_PAR_PLATEAU).toFixed(2)
-      setForm({ ...updated, plateaux_calc: plateaux })
+      setForm({ ...updated, plateaux_calc: (prod / OEUFS_PAR_PLATEAU).toFixed(2) })
     } else {
       setForm(updated)
     }
+  }
+
+  const handlePhoto = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Photo trop lourde (max 5 Mo)')
+      return
+    }
+    setPhotoFile(file)
+    setPhotoPreview(URL.createObjectURL(file))
+  }
+
+  const supprimerPhoto = () => {
+    setPhotoFile(null)
+    setPhotoPreview(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+    if (cameraInputRef.current) cameraInputRef.current.value = ''
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.bande_id) return toast.error('Sélectionnez une bande')
     if (!form.oeufs_produits) return toast.error('Indiquez le nombre d\'œufs')
+    if (!photoFile) return toast.error('📸 Une photo de justification est obligatoire')
 
     setSaving(true)
     try {
+      // Upload photo
+      const ext = photoFile.name.split('.').pop()
+      const fileName = `production/${Date.now()}_${profil?.id}.${ext}`
+      const { error: uploadError } = await supabase.storage
+        .from('justificatifs')
+        .upload(fileName, photoFile, { contentType: photoFile.type })
+      if (uploadError) throw uploadError
+
+      const { data: urlData } = supabase.storage.from('justificatifs').getPublicUrl(fileName)
+      const photoUrl = urlData.publicUrl
+
       const bande = bandes.find(b => b.id === form.bande_id)
       const prod = parseInt(form.oeufs_produits) || 0
       const plateaux = +(prod / OEUFS_PAR_PLATEAU).toFixed(2)
@@ -112,14 +140,16 @@ export default function Production() {
         nombre_plateaux: plateaux,
         taux_ponte: taux,
         collecteur_id: profil?.id,
-        notes: form.notes
+        notes: form.notes,
+        photo_url: photoUrl
       }, { onConflict: 'bande_id,date_collecte,session' })
 
       if (error) throw error
 
-      toast.success('Production enregistrée !')
+      toast.success('Production enregistrée avec photo !')
       setShowModal(false)
       setForm({ bande_id: '', date_collecte: today, session: 'matin', oeufs_produits: '', oeufs_casses: '', oeufs_sales: '', notes: '' })
+      supprimerPhoto()
       charger()
     } catch (err) {
       toast.error('Erreur : ' + err.message)
@@ -128,7 +158,6 @@ export default function Production() {
     }
   }
 
-  // Stats du jour
   const prodJour = productions.filter(p => p.date_collecte === today)
   const totalJour = prodJour.reduce((s, r) => s + r.oeufs_produits, 0)
   const cassesJour = prodJour.reduce((s, r) => s + r.oeufs_casses, 0)
@@ -154,7 +183,6 @@ export default function Production() {
         )}
       </div>
 
-      {/* KPIs du jour */}
       <div className="grille-kpi" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
         {[
           { icon: '🥚', val: totalJour.toLocaleString('fr-FR'), label: "Œufs aujourd'hui" },
@@ -172,13 +200,12 @@ export default function Production() {
         ))}
       </div>
 
-      {/* Graphiques */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
         <div className="graphique-container" style={{ margin: 0 }}>
           <div className="graphique-titre">📊 Production 30 jours</div>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={graphData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(45,138,82,0.1)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
               <XAxis dataKey="date" tick={{ fill: 'var(--gris-moyen)', fontSize: 10 }} interval={4} />
               <YAxis tick={{ fill: 'var(--gris-moyen)', fontSize: 10 }} />
               <Tooltip contentStyle={{ background: 'var(--bg-carte)', border: '1px solid var(--bordure)', borderRadius: 8, fontSize: '0.75rem' }} />
@@ -192,7 +219,7 @@ export default function Production() {
           <div className="graphique-titre">📈 Taux de ponte (%)</div>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={graphData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(45,138,82,0.1)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
               <XAxis dataKey="date" tick={{ fill: 'var(--gris-moyen)', fontSize: 10 }} interval={4} />
               <YAxis domain={[0, 100]} tick={{ fill: 'var(--gris-moyen)', fontSize: 10 }} />
               <Tooltip contentStyle={{ background: 'var(--bg-carte)', border: '1px solid var(--bordure)', borderRadius: 8, fontSize: '0.75rem' }} />
@@ -202,7 +229,6 @@ export default function Production() {
         </div>
       </div>
 
-      {/* Tableau historique */}
       <div className="carte">
         <div className="carte-header">
           <div className="carte-titre">Historique des collectes</div>
@@ -211,15 +237,9 @@ export default function Production() {
           <table className="tableau">
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Bande</th>
-                <th>Session</th>
-                <th>Produits</th>
-                <th>Cassés</th>
-                <th>Sales</th>
-                <th>Plateaux</th>
-                <th>Taux</th>
-                <th>Collecteur</th>
+                <th>Date</th><th>Bande</th><th>Session</th><th>Produits</th>
+                <th>Cassés</th><th>Sales</th><th>Plateaux</th><th>Taux</th>
+                <th>Photo</th><th>Collecteur</th>
               </tr>
             </thead>
             <tbody>
@@ -228,24 +248,29 @@ export default function Production() {
                   <td className="font-mono text-xs">{p.date_collecte}</td>
                   <td>{p.bandes?.nom || '—'}</td>
                   <td>
-                    <span className={`badge ${p.session === 'matin' ? 'badge-ocre' : 'badge-bleu'}`}>
+                    <span className={`badge ${p.session === 'matin' ? 'badge-warning' : 'badge-info'}`}>
                       {p.session === 'matin' ? '🌅 Matin' : '🌙 Soir'}
                     </span>
                   </td>
                   <td className="font-bold">{p.oeufs_produits.toLocaleString('fr-FR')}</td>
-                  <td style={{ color: p.oeufs_casses > 0 ? 'var(--rouge-alerte)' : 'inherit' }}>
-                    {p.oeufs_casses}
-                  </td>
+                  <td style={{ color: p.oeufs_casses > 0 ? 'var(--rouge-alerte)' : 'inherit' }}>{p.oeufs_casses}</td>
                   <td>{p.oeufs_sales}</td>
                   <td className="font-mono">{p.nombre_plateaux}</td>
                   <td>
-                    <span className={`badge ${p.taux_ponte >= 70 ? 'badge-vert' : p.taux_ponte >= 50 ? 'badge-ocre' : 'badge-rouge'}`}>
+                    <span className={`badge ${p.taux_ponte >= 70 ? 'badge-success' : p.taux_ponte >= 50 ? 'badge-warning' : 'badge-danger'}`}>
                       {p.taux_ponte}%
                     </span>
                   </td>
-                  <td className="text-gris text-xs">
-                    {p.profils ? `${p.profils.prenom}` : '—'}
+                  <td>
+                    {p.photo_url
+                      ? <a href={p.photo_url} target="_blank" rel="noopener noreferrer"
+                          style={{ color: 'var(--bleu-info)', fontSize: '0.8rem', textDecoration: 'underline' }}>
+                          📸 Voir
+                        </a>
+                      : <span style={{ color: 'var(--gris-moyen)', fontSize: '0.75rem' }}>—</span>
+                    }
                   </td>
+                  <td className="text-gris text-xs">{p.profils ? `${p.profils.prenom}` : '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -253,14 +278,13 @@ export default function Production() {
         </div>
       </div>
 
-      {/* Modal saisie */}
       {showModal && (
         <div className="modal-overlay">
           <div className="modal">
             <div className="modal-header">
               <div className="modal-titre">🥚 Nouvelle collecte</div>
               <button style={{ background: 'none', border: 'none', color: 'var(--gris-moyen)', cursor: 'pointer', fontSize: '1.2rem' }}
-                onClick={() => setShowModal(false)}>✕</button>
+                onClick={() => { setShowModal(false); supprimerPhoto() }}>✕</button>
             </div>
             <form onSubmit={handleSubmit}>
               <div className="modal-body">
@@ -293,7 +317,7 @@ export default function Production() {
                     <input type="number" className="form-input" name="oeufs_produits"
                       value={form.oeufs_produits} onChange={handleChange} min="0" required placeholder="0" />
                     {form.oeufs_produits && (
-                      <div style={{ fontSize: '0.75rem', color: 'var(--vert-clair)', marginTop: 4 }}>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--bleu-info)', marginTop: 4 }}>
                         = {(parseInt(form.oeufs_produits) / OEUFS_PAR_PLATEAU).toFixed(2)} plateaux
                       </div>
                     )}
@@ -314,10 +338,57 @@ export default function Production() {
                   <textarea className="form-textarea" name="notes" value={form.notes}
                     onChange={handleChange} placeholder="Observations..." />
                 </div>
+
+                {/* Section photo — obligatoire */}
+                <div className="form-groupe">
+                  <label className="form-label">
+                    📸 Photo justificative <span style={{ color: 'var(--rouge-alerte)' }}>*</span>
+                  </label>
+                  {!photoPreview ? (
+                    <div style={{
+                      border: '2px dashed #e5e7eb', borderRadius: 10, padding: '20px',
+                      textAlign: 'center', background: '#f9fafb'
+                    }}>
+                      <div style={{ fontSize: '2rem', marginBottom: 8 }}>📷</div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--gris-moyen)', marginBottom: 12 }}>
+                        Prenez une photo des œufs collectés
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+                        <button type="button" className="btn btn-primaire btn-sm"
+                          onClick={() => cameraInputRef.current?.click()}>
+                          📸 Prendre une photo
+                        </button>
+                        <button type="button" className="btn btn-secondaire btn-sm"
+                          onClick={() => fileInputRef.current?.click()}>
+                          🖼️ Choisir un fichier
+                        </button>
+                      </div>
+                      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment"
+                        style={{ display: 'none' }} onChange={handlePhoto} />
+                      <input ref={fileInputRef} type="file" accept="image/*"
+                        style={{ display: 'none' }} onChange={handlePhoto} />
+                    </div>
+                  ) : (
+                    <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+                      <img src={photoPreview} alt="Aperçu"
+                        style={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 10, border: '1px solid #e5e7eb' }} />
+                      <button type="button" onClick={supprimerPhoto}
+                        style={{
+                          position: 'absolute', top: 8, right: 8, background: 'var(--rouge-alerte)',
+                          color: 'white', border: 'none', borderRadius: '50%', width: 28, height: 28,
+                          cursor: 'pointer', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}>✕</button>
+                      <div style={{ fontSize: '0.75rem', color: '#16a34a', marginTop: 6, textAlign: 'center' }}>
+                        ✓ Photo ajoutée
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondaire" onClick={() => setShowModal(false)}>Annuler</button>
-                <button type="submit" className="btn btn-primaire" disabled={saving}>
+                <button type="button" className="btn btn-secondaire"
+                  onClick={() => { setShowModal(false); supprimerPhoto() }}>Annuler</button>
+                <button type="submit" className="btn btn-primaire" disabled={saving || !photoFile}>
                   {saving ? <span className="spinner" /> : '✓ Enregistrer'}
                 </button>
               </div>
