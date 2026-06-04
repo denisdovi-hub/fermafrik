@@ -110,6 +110,11 @@ export default function Production() {
     e.preventDefault()
     if (!form.bande_id) return toast.error('Sélectionnez une bande')
     if (!form.oeufs_produits) return toast.error('Indiquez le nombre d\'œufs')
+    const prod_val = parseInt(form.oeufs_produits) || 0
+    const casses_val = parseInt(form.oeufs_casses) || 0
+    const sales_val = parseInt(form.oeufs_sales) || 0
+    if (casses_val > prod_val) return toast.error(`Les 0153ufs cass00e9s (${casses_val}) ne peuvent pas d00e9passer les 0153ufs produits (${prod_val})`)
+    if (sales_val > prod_val) return toast.error(`Les 0153ufs sales (${sales_val}) ne peuvent pas d00e9passer les 0153ufs produits (${prod_val})`)
     if (!photoFile) return toast.error('📸 Une photo de justification est obligatoire')
 
     setSaving(true)
