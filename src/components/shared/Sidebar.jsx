@@ -34,7 +34,6 @@ export default function Sidebar({ open, onClose }) {
     ...(estAdmin() ? [{ label: 'Utilisateurs', icon: '👥', path: '/utilisateurs' }] : []),
   ]
 
-  // Pages principales pour la barre mobile (max 5)
   const navMobile = [
     { label: 'Accueil', icon: '📊', path: '/' },
     { label: 'Production', icon: '🥚', path: '/production' },
@@ -53,8 +52,6 @@ export default function Sidebar({ open, onClose }) {
     toast.success('Déconnexion réussie')
   }
 
-  // Une page est active si elle correspond exactement, ou si on est sur /traitements
-  // qui est redirigé vers /sanitaire après fusion
   const isActive = (path) => {
     if (path === '/sanitaire') {
       return location.pathname === '/sanitaire' || location.pathname === '/traitements'
@@ -66,18 +63,15 @@ export default function Sidebar({ open, onClose }) {
     <>
       {open && (
         <div
-          style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-            zIndex: 150
-          }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 150 }}
           className="sidebar-overlay"
           onClick={onClose}
         />
       )}
 
       {/* Sidebar desktop */}
-      <aside className={`sidebar ${open ? 'open' : ''}`}>
-        <div className="sidebar-logo">
+      <aside className={`sidebar ${open ? 'open' : ''}`} style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+        <div className="sidebar-logo" style={{ flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: '1.8rem' }}>🐔</span>
             <div>
@@ -87,7 +81,7 @@ export default function Sidebar({ open, onClose }) {
           </div>
         </div>
 
-        <nav className="sidebar-nav">
+        <nav className="sidebar-nav" style={{ flex: 1, overflowY: 'auto' }}>
           <div className="nav-section-title">Navigation</div>
           {navItems.map(item => (
             <button
@@ -101,32 +95,38 @@ export default function Sidebar({ open, onClose }) {
           ))}
         </nav>
 
-        {profil && (
-          <div style={{ padding: '16px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-            <div style={{
-              background: 'rgba(255,255,255,0.08)',
-              borderRadius: 'var(--radius-sm)',
-              padding: '12px',
-              marginBottom: 10
-            }}>
-              <div style={{ fontWeight: 700, fontSize: '0.875rem', color: '#ffffff' }}>
-                {profil.prenom} {profil.nom}
-              </div>
+        {/* Section profil — toujours visible en bas */}
+        <div style={{ flexShrink: 0, padding: '16px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          {profil && (
+            <>
               <div style={{
-                fontSize: '0.72rem',
-                color: ROLE_COLORS[profil.role],
-                fontWeight: 600,
-                marginTop: 2
+                background: 'rgba(255,255,255,0.08)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '12px',
+                marginBottom: 10
               }}>
-                {ROLES_LABELS[profil.role]}
+                <div style={{ fontWeight: 700, fontSize: '0.875rem', color: '#ffffff' }}>
+                  {profil.prenom} {profil.nom}
+                </div>
+                <div style={{
+                  fontSize: '0.72rem',
+                  color: ROLE_COLORS[profil.role],
+                  fontWeight: 600,
+                  marginTop: 2
+                }}>
+                  {ROLES_LABELS[profil.role]}
+                </div>
               </div>
-            </div>
-            <button className="btn btn-secondaire w-full" onClick={handleLogout}
-              style={{ justifyContent: 'center', fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)', borderColor: 'rgba(255,255,255,0.15)' }}>
-              🚪 Se déconnecter
-            </button>
-          </div>
-        )}
+              <button
+                className="btn btn-secondaire w-full"
+                onClick={handleLogout}
+                style={{ justifyContent: 'center', fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)', borderColor: 'rgba(255,255,255,0.15)' }}
+              >
+                🚪 Se déconnecter
+              </button>
+            </>
+          )}
+        </div>
       </aside>
 
       {/* Barre de navigation mobile en bas */}
