@@ -69,9 +69,9 @@ export default function Sidebar({ open, onClose }) {
         />
       )}
 
-      {/* Sidebar desktop */}
-      <aside className={`sidebar ${open ? 'open' : ''}`} style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-        <div className="sidebar-logo" style={{ flexShrink: 0 }}>
+      <aside className={`sidebar ${open ? 'open' : ''}`}>
+        {/* Logo */}
+        <div className="sidebar-logo">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: '1.8rem' }}>🐔</span>
             <div>
@@ -81,7 +81,48 @@ export default function Sidebar({ open, onClose }) {
           </div>
         </div>
 
-        <nav className="sidebar-nav" style={{ flex: 1, overflowY: 'auto' }}>
+        {/* Profil + déconnexion — juste sous le logo */}
+        {profil && (
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <div style={{
+              background: 'rgba(255,255,255,0.08)',
+              borderRadius: 'var(--radius-sm)',
+              padding: '10px 12px',
+              marginBottom: 8,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.875rem', color: '#ffffff' }}>
+                  {profil.prenom} {profil.nom}
+                </div>
+                <div style={{ fontSize: '0.72rem', color: ROLE_COLORS[profil.role], fontWeight: 600, marginTop: 2 }}>
+                  {ROLES_LABELS[profil.role]}
+                </div>
+              </div>
+              <button
+                onClick={handleLogout}
+                title="Se déconnecter"
+                style={{
+                  background: 'rgba(255,255,255,0.1)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  borderRadius: 8,
+                  color: 'rgba(255,255,255,0.7)',
+                  cursor: 'pointer',
+                  padding: '6px 10px',
+                  fontSize: '0.8rem',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                🚪 Quitter
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Navigation */}
+        <nav className="sidebar-nav">
           <div className="nav-section-title">Navigation</div>
           {navItems.map(item => (
             <button
@@ -94,39 +135,6 @@ export default function Sidebar({ open, onClose }) {
             </button>
           ))}
         </nav>
-
-        {/* Section profil — toujours visible en bas */}
-        <div style={{ flexShrink: 0, padding: '16px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          {profil && (
-            <>
-              <div style={{
-                background: 'rgba(255,255,255,0.08)',
-                borderRadius: 'var(--radius-sm)',
-                padding: '12px',
-                marginBottom: 10
-              }}>
-                <div style={{ fontWeight: 700, fontSize: '0.875rem', color: '#ffffff' }}>
-                  {profil.prenom} {profil.nom}
-                </div>
-                <div style={{
-                  fontSize: '0.72rem',
-                  color: ROLE_COLORS[profil.role],
-                  fontWeight: 600,
-                  marginTop: 2
-                }}>
-                  {ROLES_LABELS[profil.role]}
-                </div>
-              </div>
-              <button
-                className="btn btn-secondaire w-full"
-                onClick={handleLogout}
-                style={{ justifyContent: 'center', fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)', borderColor: 'rgba(255,255,255,0.15)' }}
-              >
-                🚪 Se déconnecter
-              </button>
-            </>
-          )}
-        </div>
       </aside>
 
       {/* Barre de navigation mobile en bas */}
