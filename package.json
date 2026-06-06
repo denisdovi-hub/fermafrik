@@ -10,16 +10,16 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
+    "date-fns": "^3.0.6",
+    "jspdf": "^2.5.2",
+    "jspdf-autotable": "^3.8.4",
+    "lucide-react": "^0.303.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-hot-toast": "^2.4.1",
     "react-router-dom": "^6.21.0",
     "recharts": "^2.10.0",
-    "date-fns": "^3.0.6",
-    "zustand": "^4.4.7",
-    "react-hot-toast": "^2.4.1",
-    "lucide-react": "^0.303.0",
-    "jspdf": "^2.5.1",
-    "jspdf-autotable": "^3.8.1"
+    "zustand": "^4.4.7"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",
