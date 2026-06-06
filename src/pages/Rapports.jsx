@@ -33,27 +33,33 @@ const VERT = [22, 163, 74]
 const ROUGE = [239, 68, 68]
 const GRIS = [107, 114, 128]
 
-function enTetePDF(doc, titre, periode) {
+function enTetePDF(doc, titre, periode, logoBase64) {
   const w = doc.internal.pageSize.getWidth()
   // Bande marine en haut
   doc.setFillColor(...MARINE)
-  doc.rect(0, 0, w, 28, 'F')
+  doc.rect(0, 0, w, 30, 'F')
 
-  // Logo texte
+  // Logo image si disponible
+  if (logoBase64) {
+    doc.addImage(logoBase64, 'PNG', 10, 2, 22, 22)
+  }
+
+  // Nom société
+  const textX = logoBase64 ? 36 : 14
   doc.setTextColor(255, 255, 255)
-  doc.setFontSize(18)
+  doc.setFontSize(16)
   doc.setFont('helvetica', 'bold')
-  doc.text('FermeTrack', 14, 12)
+  doc.text('FermeTrack', textX, 12)
   doc.setFontSize(8)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(180, 180, 210)
-  doc.text('Gestion Avicole', 14, 18)
+  doc.text('Gestion Avicole', textX, 18)
 
   // Titre rapport
   doc.setTextColor(255, 255, 255)
-  doc.setFontSize(11)
+  doc.setFontSize(10)
   doc.setFont('helvetica', 'bold')
-  doc.text(titre, 14, 24)
+  doc.text(titre, textX, 25)
 
   // Date et période en haut droite
   doc.setFontSize(8)
@@ -62,7 +68,7 @@ function enTetePDF(doc, titre, periode) {
   doc.text(`Période : ${periode}`, w - 14, 12, { align: 'right' })
   doc.text(`Généré le ${format(new Date(), 'dd/MM/yyyy à HH:mm')}`, w - 14, 18, { align: 'right' })
 
-  return 35 // y de départ après l'entête
+  return 38 // y de départ après l'entête
 }
 
 function piedPagePDF(doc) {
@@ -194,11 +200,22 @@ export default function Rapports() {
   }
 
   // ---- EXPORT PDF ----
-  const exporterPDF = () => {
+  const exporterPDF = async () => {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
     const label = PERIODES[periode].label
     const labelRapport = TYPES_RAPPORT.find(t => t.key === typeRapport)?.label || 'Complet'
-    let y = enTetePDF(doc, `Rapport ${labelRapport} — ${label}`, label)
+    // Charger le logo
+    let logoB64 = null
+    try {
+      const resp = await fetch('/logo.png')
+      const blob = await resp.blob()
+      logoB64 = await new Promise((res) => {
+        const reader = new FileReader()
+        reader.onload = () => res(reader.result)
+        reader.readAsDataURL(blob)
+      })
+    } catch(e) { logoB64 = null }
+    let y = enTetePDF(doc, `Rapport ${labelRapport} — ${label}`, label, logoB64)
 
     const sectionTitre = (titre, yPos) => {
       doc.setFillColor(...MARINE)
@@ -257,7 +274,7 @@ export default function Rapports() {
 
     // ---- COMPTABILITE ----
     if (typeRapport === 'comptabilite' || typeRapport === 'tout') {
-      if (y > 220) { doc.addPage(); y = enTetePDF(doc, `Rapport ${labelRapport} — ${label}`, label) }
+      if (y > 220) { doc.addPage(); y = enTetePDF(doc, `Rapport ${labelRapport} — ${label}`, label, logoB64) }
       y = sectionTitre('COMPTABILITE', y)
       kpiBox('Recettes', (statsGlobales.totalRecettes || 0).toLocaleString('fr-FR') + ' F', 14, y, VERT)
       kpiBox('Depenses', (statsGlobales.totalDepenses || 0).toLocaleString('fr-FR') + ' F', 59, y, ROUGE)
@@ -280,7 +297,7 @@ export default function Rapports() {
 
     // ---- CHEPTEL ----
     if (typeRapport === 'cheptel' || typeRapport === 'tout') {
-      if (y > 220) { doc.addPage(); y = enTetePDF(doc, `Rapport ${labelRapport} — ${label}`, label) }
+      if (y > 220) { doc.addPage(); y = enTetePDF(doc, `Rapport ${labelRapport} — ${label}`, label, logoB64) }
       y = sectionTitre('CHEPTEL', y)
       autoTable(doc, {
         startY: y,
@@ -305,7 +322,7 @@ export default function Rapports() {
 
     // ---- STOCK ----
     if (typeRapport === 'stock' || typeRapport === 'tout') {
-      if (y > 220) { doc.addPage(); y = enTetePDF(doc, `Rapport ${labelRapport} — ${label}`, label) }
+      if (y > 220) { doc.addPage(); y = enTetePDF(doc, `Rapport ${labelRapport} — ${label}`, label, logoB64) }
       y = sectionTitre('STOCK ALIMENTS', y)
       autoTable(doc, {
         startY: y,
@@ -333,7 +350,7 @@ export default function Rapports() {
 
     // ---- SANITAIRE ----
     if (typeRapport === 'sanitaire' || typeRapport === 'tout') {
-      if (y > 220) { doc.addPage(); y = enTetePDF(doc, `Rapport ${labelRapport} — ${label}`, label) }
+      if (y > 220) { doc.addPage(); y = enTetePDF(doc, `Rapport ${labelRapport} — ${label}`, label, logoB64) }
       y = sectionTitre('SANTE & TRAITEMENTS', y)
       autoTable(doc, {
         startY: y,
@@ -350,10 +367,10 @@ export default function Rapports() {
     doc.save(`FermeTrack_Rapport_${labelRapport}_${format(new Date(), 'dd-MM-yyyy')}.pdf`)
   }
 
-  const telecharger = () => {
+  const telecharger = async () => {
     setTelechargement(true)
     try {
-      if (formatExport === 'pdf') exporterPDF()
+      if (formatExport === 'pdf') await exporterPDF()
       else exporterCSV()
     } catch(e) { console.error(e) }
     setTelechargement(false)
