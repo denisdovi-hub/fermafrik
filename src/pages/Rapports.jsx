@@ -49,7 +49,7 @@ function enTetePDF(doc, titre, periode, logoBase64) {
   doc.setTextColor(255, 255, 255)
   doc.setFontSize(16)
   doc.setFont('helvetica', 'bold')
-  doc.text('FermeTrack', textX, 12)
+  doc.text('FermAfrik', textX, 12)
   doc.setFontSize(8)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(180, 180, 210)
@@ -85,7 +85,7 @@ function piedPagePDF(doc) {
     doc.setFontSize(7)
     doc.setTextColor(...GRIS)
     doc.setFont('helvetica', 'normal')
-    doc.text('FermeTrack — Gestion Avicole | Rapport confidentiel', 14, h - 4)
+    doc.text('FermAfrik — Gestion Avicole | Rapport confidentiel', 14, h - 4)
     doc.text(`Page ${i} / ${nbPages}`, w - 14, h - 4, { align: 'right' })
   }
 }
@@ -364,7 +364,7 @@ export default function Rapports() {
     }
 
     piedPagePDF(doc)
-    doc.save(`FermeTrack_Rapport_${labelRapport}_${format(new Date(), 'dd-MM-yyyy')}.pdf`)
+    doc.save(`FermAfrik_Rapport_${labelRapport}_${format(new Date(), 'dd-MM-yyyy')}.pdf`)
   }
 
   const telecharger = async () => {
