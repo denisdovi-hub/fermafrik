@@ -75,7 +75,7 @@ export default function Sidebar({ open, onClose }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: '1.8rem' }}>🐔</span>
             <div>
-              <div className="logo-text">FermeTrack</div>
+              <div className="logo-text">FermAfrik</div>
               <div className="logo-sub">Gestion Avicole</div>
             </div>
           </div>
