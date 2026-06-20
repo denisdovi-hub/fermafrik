@@ -135,7 +135,7 @@ export default function Dashboard() {
       {/* Bienvenue */}
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--blanc)' }}>
-          Bonjour, {profil?.prenom} 👋
+          Bonjour, {profil?.prenom}
         </h1>
         <div style={{ color: 'var(--gris-moyen)', fontSize: '0.875rem', marginTop: 4 }}>
           {format(new Date(), "EEEE d MMMM yyyy", { locale: fr })} · Tableau de bord
@@ -176,7 +176,7 @@ export default function Dashboard() {
         </div>
 
         <div className="kpi-carte">
-          <div style={{ fontSize: '1.5rem', marginBottom: 8 }}>💀</div>
+          <div style={{ fontSize: '1.5rem', marginBottom: 8 }}>📉</div>
           <div className="kpi-valeur" style={{ color: kpis.mortalites > 0 ? 'var(--rouge-alerte)' : 'var(--vert-clair)' }}>
             {kpis.mortalites}
           </div>

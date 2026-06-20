@@ -159,7 +159,7 @@ export default function Stock() {
     <div className="animate-fade">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 style={{ fontSize: '1.3rem', fontWeight: 800 }}>Stock d'Aliments</h1>
+          <h1 style={{ fontSize: '1.3rem', fontWeight: 800 }}>🌿 Stock d'Aliments</h1>
           <div className="text-gris text-sm mt-1">Gestion des aliments en kilogrammes</div>
         </div>
         {peutEcrire() && (

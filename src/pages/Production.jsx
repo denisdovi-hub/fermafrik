@@ -1,4 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
+import imgPlateau from '../assets/plateau.png'
+import imgOeufCasse from '../assets/oeuf-casse.png'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
 import { format, subDays } from 'date-fns'
@@ -11,10 +13,25 @@ import toast from 'react-hot-toast'
 
 const OEUFS_PAR_PLATEAU = 30
 
+// Icône plateau SVG (grille d'alvéoles)
+const IconePlateau = ({ size = 32 }) => (
+  <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <image href="/plateau.png" x="0" y="0" width="32" height="32" preserveAspectRatio="xMidYMid meet" style={{ borderRadius: 4 }} />
+  </svg>
+)
+
+// Icône oeuf cassé
+const IconeOeufCasse = ({ size = 32 }) => (
+  <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <image href="/oeuf-casse.png" x="0" y="0" width="32" height="32" preserveAspectRatio="xMidYMid meet" />
+  </svg>
+)
+
 export default function Production() {
   const { profil, peutEcrire } = useAuthStore()
   const [bandes, setBandes] = useState([])
   const [productions, setProductions] = useState([])
+  const [groupedProductions, setGroupedProductions] = useState([])
   const [graphData, setGraphData] = useState([])
   const [showModal, setShowModal] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -37,6 +54,47 @@ export default function Production() {
 
   useEffect(() => { charger() }, [])
 
+  // Regroupe les collectes par date + bande + session
+  const grouperProductions = (prods) => {
+    const map = {}
+    prods.forEach(p => {
+      const key = `${p.date_collecte}__${p.bande_id}__${p.session}`
+      if (!map[key]) {
+        map[key] = {
+          key,
+          date_collecte: p.date_collecte,
+          bande_nom: p.bandes?.nom || '—',
+          bande_effectif: p.bandes?.effectif_actuel || 0,
+          session: p.session,
+          oeufs_produits: 0,
+          oeufs_casses: 0,
+          oeufs_sales: 0,
+          collecteurs: [],
+          photos: [],
+        }
+      }
+      map[key].oeufs_produits += p.oeufs_produits
+      map[key].oeufs_casses += p.oeufs_casses
+      map[key].oeufs_sales += p.oeufs_sales
+      if (p.profils) {
+        map[key].collecteurs.push({
+          prenom: p.profils.prenom,
+          quantite: p.oeufs_produits
+        })
+      }
+      if (p.photo_url) {
+        map[key].photos.push(p.photo_url)
+      }
+    })
+
+    return Object.values(map).map(g => {
+      const effectif = g.bande_effectif
+      const plateaux = +(g.oeufs_produits / OEUFS_PAR_PLATEAU).toFixed(2)
+      const taux = effectif > 0 ? +((g.oeufs_produits / effectif) * 100).toFixed(2) : 0
+      return { ...g, nombre_plateaux: plateaux, taux_ponte: taux }
+    })
+  }
+
   const charger = async () => {
     setLoading(true)
     const { data: b } = await supabase.from('bandes').select('*').eq('statut', 'actif').order('nom')
@@ -47,9 +105,10 @@ export default function Production() {
       .select('*, bandes(nom, effectif_actuel), profils(prenom, nom)')
       .order('date_collecte', { ascending: false })
       .order('created_at', { ascending: false })
-      .limit(60)
+      .limit(120)
 
     setProductions(p || [])
+    setGroupedProductions(grouperProductions(p || []))
 
     const debut = format(subDays(new Date(), 29), 'yyyy-MM-dd')
     const { data: hist } = await supabase
@@ -113,13 +172,12 @@ export default function Production() {
     const prod_val = parseInt(form.oeufs_produits) || 0
     const casses_val = parseInt(form.oeufs_casses) || 0
     const sales_val = parseInt(form.oeufs_sales) || 0
-    if (casses_val > prod_val) return toast.error(`Les 0153ufs cass00e9s (${casses_val}) ne peuvent pas d00e9passer les 0153ufs produits (${prod_val})`)
-    if (sales_val > prod_val) return toast.error(`Les 0153ufs sales (${sales_val}) ne peuvent pas d00e9passer les 0153ufs produits (${prod_val})`)
+    if (casses_val > prod_val) return toast.error(`Les œufs cassés (${casses_val}) ne peuvent pas dépasser les œufs produits (${prod_val})`)
+    if (sales_val > prod_val) return toast.error(`Les œufs sales (${sales_val}) ne peuvent pas dépasser les œufs produits (${prod_val})`)
     if (!photoFile) return toast.error('📸 Une photo de justification est obligatoire')
 
     setSaving(true)
     try {
-      // Upload photo
       const ext = photoFile.name.split('.').pop()
       const fileName = `production/${Date.now()}_${profil?.id}.${ext}`
       const { error: uploadError } = await supabase.storage
@@ -167,6 +225,8 @@ export default function Production() {
   const totalJour = prodJour.reduce((s, r) => s + r.oeufs_produits, 0)
   const cassesJour = prodJour.reduce((s, r) => s + r.oeufs_casses, 0)
   const plateauxJour = (totalJour / OEUFS_PAR_PLATEAU).toFixed(1)
+  const effectifTotal = bandes.reduce((s, b) => s + (b.effectif_actuel || 0), 0)
+  const tauxJour = effectifTotal > 0 ? ((totalJour / effectifTotal) * 100).toFixed(1) : 0
 
   if (loading) return (
     <div className="page-chargement"><div className="spinner" /><span>Chargement...</span></div>
@@ -188,23 +248,52 @@ export default function Production() {
         )}
       </div>
 
+      {/* KPI Cards */}
       <div className="grille-kpi" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
-        {[
-          { icon: '🥚', val: totalJour.toLocaleString('fr-FR'), label: "Œufs aujourd'hui" },
-          { icon: '🍽️', val: plateauxJour, label: 'Plateaux (30 œufs)' },
-          { icon: '💔', val: cassesJour, label: 'Œufs cassés', rouge: cassesJour > 0 },
-          { icon: '📊', val: `${bandes[0] ? ((totalJour / bandes.reduce((s, b) => s + b.effectif_actuel, 0)) * 100).toFixed(1) : 0}%`, label: 'Taux de ponte' },
-        ].map((k, i) => (
-          <div key={i} className="kpi-carte">
-            <div style={{ fontSize: '1.5rem', marginBottom: 8 }}>{k.icon}</div>
-            <div className="kpi-valeur" style={k.rouge ? { color: 'var(--rouge-alerte)' } : {}}>
-              {k.val}
-            </div>
-            <div className="kpi-label">{k.label}</div>
+        {/* Oeufs aujourd'hui */}
+        <div className="kpi-carte">
+          <div style={{ fontSize: '1.5rem', marginBottom: 8 }}>🥚</div>
+          <div className="kpi-valeur">{totalJour.toLocaleString('fr-FR')}</div>
+          <div className="kpi-label">ŒUFS AUJOURD'HUI</div>
+        </div>
+
+        {/* Plateaux — photo miniature */}
+        <div className="kpi-carte">
+          <div style={{ marginBottom: 8 }}>
+            <img
+              src={imgPlateau}
+              alt="plateau d'œufs"
+              style={{ width: 56, height: 42, objectFit: 'contain', borderRadius: 6, display: 'block', margin: '0 auto' }}
+            />
           </div>
-        ))}
+          <div className="kpi-valeur">{plateauxJour}</div>
+          <div className="kpi-label">PLATEAUX (30 ŒUFS)</div>
+        </div>
+
+        {/* Oeufs cassés — photo miniature */}
+        <div className="kpi-carte">
+          <div style={{ marginBottom: 8 }}>
+            <img
+              src={imgOeufCasse}
+              alt="œuf cassé"
+              style={{ width: 42, height: 42, objectFit: 'contain', borderRadius: 6, display: 'block', margin: '0 auto' }}
+            />
+          </div>
+          <div className="kpi-valeur" style={cassesJour > 0 ? { color: 'var(--rouge-alerte)' } : {}}>
+            {cassesJour}
+          </div>
+          <div className="kpi-label">ŒUFS CASSÉS</div>
+        </div>
+
+        {/* Taux de ponte */}
+        <div className="kpi-carte">
+          <div style={{ fontSize: '1.5rem', marginBottom: 8 }}>📊</div>
+          <div className="kpi-valeur">{tauxJour}%</div>
+          <div className="kpi-label">TAUX DE PONTE</div>
+        </div>
       </div>
 
+      {/* Graphiques */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
         <div className="graphique-container" style={{ margin: 0 }}>
           <div className="graphique-titre">📊 Production 30 jours</div>
@@ -234,12 +323,13 @@ export default function Production() {
         </div>
       </div>
 
+      {/* Tableau historique simple */}
       <div className="carte">
         <div className="carte-header">
           <div className="carte-titre">Historique des collectes</div>
         </div>
         <div className="tableau-container">
-          <table className="tableau">
+          <table className="tableau" style={{ borderCollapse: 'collapse', width: '100%' }}>
             <thead>
               <tr>
                 <th>Date</th><th>Bande</th><th>Session</th><th>Produits</th>
@@ -248,8 +338,10 @@ export default function Production() {
               </tr>
             </thead>
             <tbody>
-              {productions.slice(0, 30).map(p => (
-                <tr key={p.id}>
+              {productions.slice(0, 30).map((p, index) => (
+                <tr key={p.id} style={{
+                  backgroundColor: index % 2 === 0 ? 'var(--bg-carte)' : 'rgba(0,0,0,0.03)'
+                }}>
                   <td className="font-mono text-xs">{p.date_collecte}</td>
                   <td>{p.bandes?.nom || '—'}</td>
                   <td>
@@ -283,6 +375,7 @@ export default function Production() {
         </div>
       </div>
 
+      {/* Modal saisie */}
       {showModal && (
         <div className="modal-overlay">
           <div className="modal">
@@ -344,7 +437,6 @@ export default function Production() {
                     onChange={handleChange} placeholder="Observations..." />
                 </div>
 
-                {/* Section photo — obligatoire */}
                 <div className="form-groupe">
                   <label className="form-label">
                     📸 Photo justificative <span style={{ color: 'var(--rouge-alerte)' }}>*</span>
