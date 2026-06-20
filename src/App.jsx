@@ -22,13 +22,13 @@ import BoutonNotifications from './components/shared/BoutonNotifications'
 
 const TITRES_PAGES = {
   '/': 'Tableau de bord',
-  '/production': 'Production d\'Œufs',
-  '/cheptel': 'Gestion du Cheptel',
-  '/sanitaire': 'Sanitaire & Vaccins',
+  '/production': 'Production',
+  '/cheptel': 'Cheptel',
+  '/sanitaire': 'Santé',
   '/traitements': 'Traitements',
-  '/stock': 'Stock Aliments',
+  '/stock': 'Aliments',
   '/comptabilite': 'Comptabilité',
-  '/rapports': 'Bilans & Rapports',
+  '/rapports': 'Rapports',
   '/utilisateurs': 'Utilisateurs',
 }
 
